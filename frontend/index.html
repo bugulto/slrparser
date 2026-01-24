@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SLR Parser - Interactive Compiler Design Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .glass-strong {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #673897 100%);
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            animation: slideInRight 0.5s ease;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .loader {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .table-header-action {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .table-header-goto {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .cell-shift {
+            background-color: #dbeafe;
+            color: #1e40af;
+            font-weight: bold;
+        }
+
+        .cell-reduce {
+            background-color: #fef3c7;
+            color: #92400e;
+            font-weight: bold;
+        }
+
+        .cell-accept {
+            background-color: #dcfce7;
+            color: #065f46;
+            font-weight: bold;
+        }
+
+        .cell-goto {
+            background-color: #f0f9ff;
+            color: #0369a1;
+            font-weight: bold;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 90%;
+            max-height: 90%;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body class="p-4">
+    <div id="notification-container"></div>
+
+    <!-- PDF Preview Modal -->
+    <div id="pdf-preview-modal" class="modal-overlay hidden">
+        <div class="modal-content w-11/12 md:w-3/4 lg:w-2/3 xl:w-1/2">
+            <div
+                class="p-4 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-purple-500 to-purple-700">
+                <h3 class="text-xl font-bold text-white">PDF Preview</h3>
+                <button onclick="closePDFPreview()" class="text-white hover:text-gray-200 text-2xl">&times;</button>
+            </div>
+            <div class="p-4">
+                <div id="pdf-preview-content" class="text-center">
+                    <div class="mb-4">
+                        <div class="loader mx-auto mb-4"></div>
+                        <p class="text-gray-700">Generating PDF preview...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-200 flex gap-3">
+                <button onclick="closePDFPreview()"
+                    class="flex-1 bg-gray-500 text-white px-4 py-2 rounded-lg font-semibold">
+                    Cancel
+                </button>
+                <button onclick="downloadPreviewedPDF()"
+                    class="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold">
+                    Download PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 animate-fade-in">
+            <h1 class="text-4xl font-bold text-white mb-2">
+                SLR Parser Studio
+            </h1>
+            <p class="text-lg text-white opacity-90">
+                Interactive Compiler Design Tool
+            </p>
+        </div>
+
+        <div class="glass-strong rounded-2xl p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <span class="text-sm font-semibold text-gray-700">Progress</span>
+                <span class="text-sm font-semibold text-purple-600" id="progress-text">Step 1 of 6</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3">
+                <div id="progress-bar" class="bg-gradient-to-r from-purple-500 to-purple-700 h-3 rounded-full"
+                    style="width: 16.67%"></div>
+            </div>
+        </div>
+
+        <!-- Step 1: Enter Grammar -->
+        <div id="step1" class="glass-strong rounded-2xl p-6 mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">1. Enter Context-Free Grammar</h2>
+
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Select Example Grammar:</label>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                    <button onclick="loadExample(1)"
+                        class="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg text-sm text-left">
+                        <span class="font-bold">Simple Grammar</span><br>
+                        <code class="text-xs">S -> AA<br>A -> aA<br>A -> b</code>
+                    </button>
+                    <button onclick="loadExample(2)"
+                        class="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg text-sm text-left">
+                        <span class="font-bold">Expression Grammar</span><br>
+                        <code class="text-xs">E -> E + T | T<br>T -> T * F | F<br>F -> ( E ) | id</code>
+                    </button>
+                    <button onclick="loadExample(3)"
+                        class="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg text-sm text-left">
+                        <span class="font-bold">Grammar with Conflicts</span><br>
+                        <code class="text-xs">S -> x A y<br>S -> x B y<br>S -> x A z<br>A -> q S | q<br>B -> q</code>
+                    </button>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Your Grammar:</label>
+                <textarea id="grammar-input" class="w-full h-48 p-4 border border-gray-300 rounded-lg font-mono"
+                    placeholder="Enter your grammar here..."></textarea>
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="showExampleStrings()"
+                    class="flex-1 bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold">
+                    Show Example Strings
+                </button>
+                <button onclick="parseGrammar()"
+                    class="flex-1 btn-primary text-white px-6 py-3 rounded-lg font-semibold">
+                    Parse Grammar & Continue →
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 2: Augmented Grammar -->
+        <div id="step2" class="glass-strong rounded-2xl p-6 mb-6 hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">2. Augmented Grammar</h2>
+
+            <div id="augmented-grammar-output" class="mb-4"></div>
+
+            <div class="flex gap-4">
+                <button onclick="showStep(1)" class="flex-1 bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold">
+                    ← Back
+                </button>
+                <button onclick="computeFirstFollow()"
+                    class="flex-1 btn-primary text-white px-6 py-3 rounded-lg font-semibold">
+                    Calculate FIRST & FOLLOW →
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 3: FIRST & FOLLOW Sets -->
+        <div id="step3" class="glass-strong rounded-2xl p-6 mb-6 hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">3. FIRST & FOLLOW Sets</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-green-800 mb-2">FIRST Sets</h3>
+                    <div id="first-sets-output" class="bg-green-50 p-4 rounded-lg"></div>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-blue-800 mb-2">FOLLOW Sets</h3>
+                    <div id="follow-sets-output" class="bg-blue-50 p-4 rounded-lg"></div>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="showStep(2)" class="flex-1 bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold">
+                    ← Back
+                </button>
+                <button onclick="buildDFA()" class="flex-1 btn-primary text-white px-6 py-3 rounded-lg font-semibold">
+                    Build DFA →
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 4: DFA States -->
+        <div id="step4" class="glass-strong rounded-2xl p-6 mb-6 hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">4. DFA States</h2>
+
+            <div id="dfa-states-output" class="mb-4"></div>
+
+            <div class="flex gap-4">
+                <button onclick="showStep(3)" class="flex-1 bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold">
+                    ← Back
+                </button>
+                <button onclick="generateDFADiagram()"
+                    class="flex-1 btn-primary text-white px-6 py-3 rounded-lg font-semibold">
+                    Generate DFA Diagram →
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 5: DFA Diagram & Parsing Table -->
+        <div id="step5" class="glass-strong rounded-2xl p-6 mb-6 hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">5. DFA Diagram & Parsing Table</h2>
+
+            <div class="mb-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-2">DFA Diagram</h3>
+                <div id="dfa-diagram-output" class="bg-white p-4 rounded-lg"></div>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-2">SLR Parsing Table</h3>
+                <div id="slr-status-output" class="mb-4"></div>
+                <div id="parsing-table-output" class="bg-white p-4 rounded-lg overflow-x-auto"></div>
+                <div id="conflicts-output" class="mt-4"></div>
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="showStep(4)" class="flex-1 bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold">
+                    ← Back
+                </button>
+
+                <button onclick="showStep(6)" class="flex-1 btn-primary text-white px-6 py-3 rounded-lg font-semibold">
+                    Parse String →
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 6: Parse String -->
+        <div id="step6" class="glass-strong rounded-2xl p-6 mb-6 hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">6. Parse Input String</h2>
+
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Input String (space-separated
+                    tokens):</label>
+                <input type="text" id="input-string" class="w-full p-4 border border-gray-300 rounded-lg font-mono"
+                    placeholder="Enter tokens separated by spaces">
+                <p class="text-sm text-gray-600 mt-1">Example for Simple Grammar: "a a b b" (accepted), "a b" (rejected)
+                </p>
+            </div>
+
+            <div class="flex gap-4 mb-6">
+                <button onclick="loadExampleString(1)"
+                    class="flex-1 bg-blue-100 text-blue-800 px-4 py-2 rounded-lg text-sm font-semibold">
+                    Load Accepted String
+                </button>
+                <button onclick="loadExampleString(2)"
+                    class="flex-1 bg-red-100 text-red-800 px-4 py-2 rounded-lg text-sm font-semibold">
+                    Load Rejected String
+                </button>
+                <button onclick="parseInputString()"
+                    class="flex-2 btn-primary text-white px-6 py-3 rounded-lg font-semibold">
+                    Parse String
+                </button>
+            </div>
+
+            <div id="parsing-result-output"></div>
+
+            <div class="flex gap-4 mt-6">
+                <button onclick="showStep(5)" class="flex-1 bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold">
+                    ← Back
+                </button>
+
+                <button onclick="showPDFOptions()"
+                    class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold">
+                    📄 Generate Report
+                </button>
+
+                <button onclick="resetAll()" class="flex-1 bg-red-500 text-white px-6 py-3 rounded-lg font-semibold">
+                    Start Over
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl p-8 text-center">
+            <div class="loader mx-auto mb-4"></div>
+            <p class="text-gray-700 font-semibold">Processing...</p>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5000/api';
+        let currentGrammar = '';
+        let currentStep = 1;
+        let currentGrammarType = '';
+        let currentParsingResult = null;
+        let currentInputString = '';
+        let currentPDFBase64 = null;
+
+        function showNotification(message, type = 'info') {
+            const container = document.getElementById('notification-container');
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500',
+                warning: 'bg-yellow-500'
+            };
+
+            const notification = document.createElement('div');
+            notification.className = `notification ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg mb-2`;
+            notification.innerHTML = `<span class="font-semibold">${message}</span>`;
+
+            container.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 500);
+            }, 3000);
+        }
+
+        function showLoading() {
+            document.getElementById('loading-overlay').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        }
+
+        function updateProgress(step) {
+            currentStep = step;
+            const percentage = (step / 6) * 100;
+            document.getElementById('progress-bar').style.width = percentage + '%';
+            document.getElementById('progress-text').textContent = `Step ${step} of 6`;
+        }
+
+        function showStep(step) {
+            for (let i = 1; i <= 6; i++) {
+                document.getElementById(`step${i}`).classList.add('hidden');
+            }
+            document.getElementById(`step${step}`).classList.remove('hidden');
+            updateProgress(step);
+
+            // Clear parsing result when changing steps
+            if (step !== 6) {
+                document.getElementById('parsing-result-output').innerHTML = '';
+            }
+        }
+
+        function loadExample(exampleNum) {
+            const examples = {
+                1: `S -> AA\nA -> aA\nA -> b`,
+                2: `E -> E + T | T\nT -> T * F | F\nF -> ( E ) | id`,
+                3: `S -> x A y\nS -> x B y\nS -> x A z\nA -> q S | q\nB -> q`
+            };
+
+            currentGrammarType = exampleNum === 1 ? 'simple' :
+                exampleNum === 2 ? 'expression' : 'conflict';
+
+            document.getElementById('grammar-input').value = examples[exampleNum];
+            showNotification(`Loaded Example Grammar ${exampleNum}`, 'info');
+        }
+
+        function showExampleStrings() {
+            const grammar = document.getElementById('grammar-input').value.trim();
+            if (!grammar) {
+                showNotification('Please enter a grammar first!', 'warning');
+                return;
+            }
+
+            let message = '';
+            if (grammar.includes('S -> AA') && grammar.includes('A -> aA')) {
+                message = 'For this grammar:\nAccepted: "a a b b", "a b b"\nRejected: "a b", "b b"';
+            } else if (grammar.includes('E -> E + T')) {
+                message = 'For this grammar:\nAccepted: "id + id * id", "( id + id ) * id"\nRejected: "id +", "+ id"';
+            } else if (grammar.includes('S -> x A y')) {
+                message = 'For this grammar:\nAccepted: "x q y", "x q z", "x q x q y y"\nNote: This grammar has conflicts (not SLR(1))';
+            } else {
+                message = 'Enter a grammar and parse it to see example strings';
+            }
+
+            alert(message);
+        }
+
+        function loadExampleString(type) {
+            let example = '';
+            if (currentGrammarType === 'simple') {
+                example = type === 1 ? 'a a b b' : 'a b';
+            } else if (currentGrammarType === 'expression') {
+                example = type === 1 ? 'id + id * id' : 'id +';
+            } else if (currentGrammarType === 'conflict') {
+                example = type === 1 ? 'x q y' : 'x y';
+            } else {
+                example = type === 1 ? 'a a b b' : 'a b';
+            }
+
+            document.getElementById('input-string').value = example;
+            showNotification(`Loaded ${type === 1 ? 'accepted' : 'rejected'} example string`, 'info');
+        }
+
+        async function parseGrammar() {
+            const grammarInput = document.getElementById('grammar-input').value.trim();
+
+            if (!grammarInput) {
+                showNotification('Please enter a grammar!', 'error');
+                return;
+            }
+
+            showLoading();
+            currentGrammar = grammarInput;
+
+            try {
+                const response = await fetch(`${API_URL}/augment-grammar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ grammar: grammarInput })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayAugmentedGrammar(data.augmented_grammar, data.productions);
+                    showNotification('Grammar parsed successfully!', 'success');
+                    showStep(2);
+                } else {
+                    showNotification('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showNotification('Failed to connect to backend!', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayAugmentedGrammar(grammar, productions) {
+            let html = '<h4 class="font-bold text-gray-700 mb-2">Augmented Grammar:</h4>';
+            html += '<div class="space-y-2 mb-4">';
+
+            for (const [lhs, rhsList] of Object.entries(grammar)) {
+                for (const rhs of rhsList) {
+                    html += `<div class="bg-white p-2 rounded border">
+                        <span class="font-bold">${lhs}</span> → <span>${rhs || 'ε'}</span>
+                    </div>`;
+                }
+            }
+            html += '</div>';
+
+            html += '<h4 class="font-bold text-gray-700 mb-2">Numbered Productions:</h4>';
+            html += '<div class="space-y-1">';
+
+            productions.forEach(prod => {
+                html += `<div class="text-sm">
+                    <span class="font-bold">[${prod.index}]</span> ${prod.lhs} → ${prod.rhs}
+                </div>`;
+            });
+            html += '</div>';
+
+            document.getElementById('augmented-grammar-output').innerHTML = html;
+        }
+
+        async function computeFirstFollow() {
+            showLoading();
+
+            try {
+                const response = await fetch(`${API_URL}/compute-first-follow`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ grammar: currentGrammar })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayFirstFollowSets(data.first_sets, data.follow_sets);
+                    showNotification('FIRST & FOLLOW sets calculated!', 'success');
+                    showStep(3);
+                } else {
+                    showNotification('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showNotification('Failed to compute FIRST & FOLLOW sets!', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayFirstFollowSets(firstSets, followSets) {
+            let firstHtml = '<div class="space-y-2">';
+            for (const [symbol, set] of Object.entries(firstSets)) {
+                firstHtml += `<div>
+                    <span class="font-bold">FIRST(${symbol})</span> = { ${set.join(', ')} }
+                </div>`;
+            }
+            firstHtml += '</div>';
+            document.getElementById('first-sets-output').innerHTML = firstHtml;
+
+            let followHtml = '<div class="space-y-2">';
+            for (const [symbol, set] of Object.entries(followSets)) {
+                followHtml += `<div>
+                    <span class="font-bold">FOLLOW(${symbol})</span> = { ${set.join(', ')} }
+                </div>`;
+            }
+            followHtml += '</div>';
+            document.getElementById('follow-sets-output').innerHTML = followHtml;
+        }
+
+        async function buildDFA() {
+            showLoading();
+
+            try {
+                const response = await fetch(`${API_URL}/build-dfa`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ grammar: currentGrammar })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayDFAStates(data.states, data.transitions);
+                    showNotification('DFA states constructed!', 'success');
+                    showStep(4);
+                } else {
+                    showNotification('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showNotification('Failed to build DFA!', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayDFAStates(states, transitions) {
+            let html = '<h4 class="font-bold text-gray-700 mb-2">States:</h4>';
+            html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">';
+
+            states.forEach(state => {
+                const borderColor = state.is_start ? 'border-green-500' : 'border-gray-300';
+
+                html += `<div class="bg-white p-4 rounded-lg border-2 ${borderColor}">
+                    <h5 class="font-bold mb-2 ${state.is_start ? 'text-green-600' : 'text-gray-700'}">
+                        ${state.name} ${state.is_start ? '(Start)' : ''}
+                    </h5>
+                    <div class="space-y-1 text-sm max-h-40 overflow-y-auto">`;
+
+                state.items.forEach(item => {
+                    html += `<div class="text-gray-600">${item}</div>`;
+                });
+
+                html += '</div></div>';
+            });
+
+            html += '</div>';
+
+            html += '<h4 class="font-bold text-gray-700 mb-2">Transitions:</h4>';
+            html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-2">';
+
+            transitions.forEach(trans => {
+                html += `<div class="bg-gray-100 p-2 rounded text-sm">
+                    ${trans.from} --[ ${trans.symbol} ]--> ${trans.to}
+                </div>`;
+            });
+
+            html += '</div>';
+            document.getElementById('dfa-states-output').innerHTML = html;
+        }
+
+        async function generateDFADiagram() {
+            showLoading();
+
+            try {
+                const diagramResponse = await fetch(`${API_URL}/generate-dfa-diagram`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ grammar: currentGrammar })
+                });
+
+                const diagramData = await diagramResponse.json();
+
+                const tableResponse = await fetch(`${API_URL}/build-parsing-table`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ grammar: currentGrammar })
+                });
+
+                const tableData = await tableResponse.json();
+
+                if (diagramData.success && tableData.success) {
+                    displayDFADiagram(diagramData.diagram);
+                    displayParsingTable(tableData.parsing_table, tableData.conflicts, tableData.has_conflicts, tableData.is_slr1, tableData.message);
+                    showNotification('DFA diagram and parsing table generated!', 'success');
+                    showStep(5);
+                } else {
+                    showNotification('Error generating diagram or table!', 'error');
+                }
+            } catch (error) {
+                showNotification('Failed to generate DFA diagram!', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayDFADiagram(imageBase64) {
+            document.getElementById('dfa-diagram-output').innerHTML =
+                `<img src="data:image/png;base64,${imageBase64}" class="max-w-full h-auto rounded-lg shadow" alt="DFA Diagram">`;
+        }
+
+        function displayParsingTable(table, conflicts, hasConflicts, isSLR1, message) {
+            const actionCols = table.action_columns || [];
+            const gotoCols = table.goto_columns || [];
+            const rows = table.rows || [];
+
+            // Display SLR(1) status
+            const statusColor = isSLR1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+            const statusIcon = isSLR1 ? '✓' : '✗';
+            document.getElementById('slr-status-output').innerHTML =
+                `<div class="p-4 rounded-lg ${statusColor}">
+                    <h4 class="font-bold">${statusIcon} ${message}</h4>
+                </div>`;
+
+            let html = '<table class="w-full text-sm border border-gray-300">';
+
+            // Table headers with ACTION/GOTO sections
+            html += '<thead><tr>';
+            html += '<th class="border border-gray-300 p-2 bg-gray-100">State</th>';
+
+            // ACTION section header
+            if (actionCols.length > 0) {
+                html += `<th colspan="${actionCols.length}" class="border border-gray-300 p-2 table-header-action text-center">ACTION</th>`;
+            }
+
+            // GOTO section header
+            if (gotoCols.length > 0) {
+                html += `<th colspan="${gotoCols.length}" class="border border-gray-300 p-2 table-header-goto text-center">GOTO</th>`;
+            }
+
+            html += '</tr><tr>';
+            html += '<th class="border border-gray-300 p-2 bg-gray-100 font-bold">I#</th>';
+
+            // ACTION columns
+            actionCols.forEach(col => {
+                html += `<th class="border border-gray-300 p-2 bg-purple-50 font-medium">${col}</th>`;
+            });
+
+            // GOTO columns
+            gotoCols.forEach(col => {
+                html += `<th class="border border-gray-300 p-2 bg-blue-50 font-medium">${col}</th>`;
+            });
+
+            html += '</tr></thead><tbody>';
+
+            // Table rows
+            rows.forEach(row => {
+                html += `<tr><td class="border border-gray-300 p-2 font-bold bg-gray-50">${row.state}</td>`;
+
+                // ACTION cells
+                actionCols.forEach(col => {
+                    const val = row[col] || '';
+                    let cellClass = 'border border-gray-300 p-1 text-center';
+
+                    if (val.startsWith('s')) {
+                        cellClass += ' cell-shift';
+                    } else if (val.startsWith('r')) {
+                        cellClass += ' cell-reduce';
+                    } else if (val === 'acc') {
+                        cellClass += ' cell-accept';
+                    }
+
+                    html += `<td class="${cellClass}">${val}</td>`;
+                });
+
+                // GOTO cells
+                gotoCols.forEach(col => {
+                    const val = row[col] || '';
+                    const cellClass = `border border-gray-300 p-1 text-center ${val ? 'cell-goto' : ''}`;
+                    html += `<td class="${cellClass}">${val}</td>`;
+                });
+
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('parsing-table-output').innerHTML = html;
+
+            // Conflicts display
+            if (hasConflicts) {
+                let conflictsHtml = `<div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                    <h4 class="font-bold text-red-800 mb-2">⚠️ Conflicts Detected (${conflicts.length}):</h4>
+                    <div class="max-h-60 overflow-y-auto">`;
+
+                conflicts.forEach((conflict, index) => {
+                    conflictsHtml += `<div class="mb-2 p-2 bg-red-100 rounded border border-red-300">
+                        <span class="font-bold text-red-700">Conflict ${index + 1}:</span>
+                        <span class="text-red-600 ml-2">${conflict}</span>
+                    </div>`;
+                });
+
+                conflictsHtml += '</div></div>';
+                document.getElementById('conflicts-output').innerHTML = conflictsHtml;
+            } else {
+                document.getElementById('conflicts-output').innerHTML =
+                    '<div class="bg-green-50 p-4 rounded-lg border border-green-200">' +
+                    '<p class="text-green-800 font-bold">✓ No conflicts detected. Grammar is SLR(1).</p>' +
+                    '</div>';
+            }
+        }
+
+        // New PDF functions
+        function showPDFOptions() {
+            const modalContent = `
+                <div class="p-4">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">Generate Report</h3>
+                    <p class="text-gray-600 mb-4">Choose how you want to generate the PDF report:</p>
+                    
+                    <div class="space-y-3">
+                        <button onclick="generateCompletePDF(); this.closest('.modal-overlay').remove()" class="w-full bg-purple-500 hover:bg-purple-600 text-white px-4 py-3 rounded-lg font-semibold flex items-center justify-center">
+                            <span>📄 Download Complete Report (All Steps)</span>
+                        </button>
+                        
+                        <button onclick="previewPDF(); this.closest('.modal-overlay').remove()" class="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-lg font-semibold flex items-center justify-center">
+                            <span>👁️ Preview Complete Report</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            showCustomModal('Export Options', modalContent);
+        }
+
+        function showCustomModal(title, content) {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="modal-content w-11/12 md:w-1/2">
+                    <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-purple-500 to-purple-700">
+                        <h3 class="text-xl font-bold text-white">${title}</h3>
+                        <button onclick="this.closest('.modal-overlay').remove()" class="text-white hover:text-gray-200 text-2xl">&times;</button>
+                    </div>
+                    <div class="p-4">
+                        ${content}
+                    </div>
+                    <div class="p-4 border-t border-gray-200">
+                        <button onclick="this.closest('.modal-overlay').remove()" class="w-full bg-gray-500 text-white px-4 py-2 rounded-lg font-semibold">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        async function generateQuickPDF() {
+            await downloadPDF(false);
+        }
+
+        async function generateCompletePDF() {
+            await downloadPDF(true);
+        }
+
+        async function previewPDF() {
+            document.getElementById('pdf-preview-modal').classList.remove('hidden');
+            showLoading();
+
+            try {
+                const inputString = document.getElementById('input-string')?.value.trim() || '';
+
+                const response = await fetch(`${API_URL}/generate-pdf-preview`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        grammar: currentGrammar,
+                        input_string: inputString,
+                        include_parsing: inputString ? true : false
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to generate preview');
+                }
+
+                const data = await response.json();
+
+                if (data.success && data.pdf_base64) {
+                    currentPDFBase64 = data.pdf_base64;
+
+                    // Display PDF preview in an iframe
+                    const previewContent = document.getElementById('pdf-preview-content');
+                    previewContent.innerHTML = `
+                        <div class="mb-4">
+                            <p class="text-sm text-gray-600 mb-2">Report includes original grammar, augmented grammar, FIRST/FOLLOW sets, DFA states, parsing table, and parsing trace.</p>
+                            <iframe src="data:application/pdf;base64,${currentPDFBase64}" class="w-full h-[500px] border border-gray-300 rounded-lg"></iframe>
+                        </div>
+                    `;
+                } else {
+                    throw new Error('No PDF data received');
+                }
+
+            } catch (error) {
+                console.error('Preview error:', error);
+                document.getElementById('pdf-preview-content').innerHTML = `
+                    <div class="text-red-600">
+                        <h4 class="font-bold mb-2">Error Generating Preview</h4>
+                        <p>${error.message}</p>
+                        <button onclick="previewPDF()" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg">
+                            Try Again
+                        </button>
+                    </div>
+                `;
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function closePDFPreview() {
+            document.getElementById('pdf-preview-modal').classList.add('hidden');
+            currentPDFBase64 = null;
+        }
+
+        function downloadPreviewedPDF() {
+            if (!currentPDFBase64) {
+                showNotification('No PDF available to download!', 'error');
+                return;
+            }
+
+            // Convert base64 to blob
+            const byteCharacters = atob(currentPDFBase64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+            // Create download
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'SLR_Parser_Complete_Report.pdf';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+            showNotification('PDF downloaded successfully!', 'success');
+            closePDFPreview();
+        }
+
+        async function downloadPDF(includeAllSteps = true) {
+            if (!currentGrammar) {
+                showNotification('No grammar available to export!', 'error');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const inputString = document.getElementById('input-string')?.value.trim() || '';
+
+                const response = await fetch(`${API_URL}/export-pdf`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        grammar: currentGrammar,
+                        input_string: inputString,
+                        include_all_steps: includeAllSteps
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to generate PDF');
+                }
+
+                const blob = await response.blob();
+
+                // Create download
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = includeAllSteps ? 'SLR_Parser_Complete_Report.pdf' : 'SLR_Parser_Quick_Report.pdf';
+                document.body.appendChild(a);
+                a.click();
+
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                showNotification(`PDF downloaded successfully! ${includeAllSteps ? '(Complete Report)' : '(Quick Report)'}`, 'success');
+
+            } catch (error) {
+                console.error(error);
+                showNotification(`PDF generation failed: ${error.message}`, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function generateReportWithParsing() {
+            // First ensure we have parsed the string
+            const inputString = document.getElementById('input-string').value.trim();
+            if (!inputString) {
+                showNotification('Please parse a string first!', 'warning');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                // Generate the report with parsing results
+                const response = await fetch(`${API_URL}/export-pdf`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        grammar: currentGrammar,
+                        input_string: inputString,
+                        include_all_steps: true,
+                        include_parsing_results: true
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to generate PDF');
+                }
+
+                const blob = await response.blob();
+
+                // Create download
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'SLR_Parser_Complete_Report_With_Parsing.pdf';
+                document.body.appendChild(a);
+                a.click();
+
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                showNotification('Complete report with parsing downloaded!', 'success');
+
+            } catch (error) {
+                console.error(error);
+                showNotification(`Report generation failed: ${error.message}`, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function parseInputString() {
+            const inputString = document.getElementById('input-string').value.trim();
+            currentInputString = inputString;
+
+            if (!inputString) {
+                showNotification('Please enter an input string!', 'error');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch(`${API_URL}/parse-string`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        grammar: currentGrammar,
+                        input_string: inputString
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentParsingResult = data;
+                    displayParsingResult(data.steps, true, data.message);
+                    showNotification('String accepted!', 'success');
+                } else {
+                    currentParsingResult = data;
+                    displayParsingResult(data.steps, false, data.message);
+                    showNotification(data.message || 'String not accepted!', 'error');
+                }
+            } catch (error) {
+                showNotification('Failed to parse string!', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayParsingResult(steps, success, message) {
+            let html = `<div class="mb-4 p-4 rounded-lg ${success ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-red-100 text-red-800 border border-red-300'}">
+                <h4 class="font-bold">${success ? '✓ ACCEPTED' : '✗ REJECTED'}: ${message}</h4>
+            </div>`;
+
+            if (steps && steps.length > 0) {
+                html += '<div class="bg-white p-4 rounded-lg border border-gray-300">';
+                html += '<h4 class="font-bold mb-3 text-gray-800">Parsing Steps:</h4>';
+                html += '<div class="overflow-x-auto">';
+                html += '<table class="w-full text-sm border border-gray-300">';
+                html += '<thead><tr class="bg-gray-50">';
+                html += '<th class="border border-gray-300 p-2">Step</th>';
+                html += '<th class="border border-gray-300 p-2">Stack</th>';
+                html += '<th class="border border-gray-300 p-2">Input</th>';
+                html += '<th class="border border-gray-300 p-2">Action</th>';
+                html += '</tr></thead><tbody>';
+
+                steps.forEach(step => {
+                    let actionColor = '';
+                    if (step.action.includes('ACCEPT')) {
+                        actionColor = 'text-green-600 font-bold';
+                    } else if (step.action.includes('ERROR')) {
+                        actionColor = 'text-red-600 font-bold';
+                    } else if (step.action.includes('Shift')) {
+                        actionColor = 'text-blue-600';
+                    } else if (step.action.includes('Reduce')) {
+                        actionColor = 'text-purple-600';
+                    }
+
+                    html += `<tr class="hover:bg-gray-50">
+                        <td class="border border-gray-300 p-2 text-center">${step.step}</td>
+                        <td class="border border-gray-300 p-2 font-mono bg-gray-50">${step.stack}</td>
+                        <td class="border border-gray-300 p-2 font-mono bg-blue-50">${step.input}</td>
+                        <td class="border border-gray-300 p-2 ${actionColor}">${step.action}</td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table></div></div>';
+            }
+
+            document.getElementById('parsing-result-output').innerHTML = html;
+        }
+
+        function resetAll() {
+            currentGrammar = '';
+            currentGrammarType = '';
+            currentParsingResult = null;
+            currentInputString = '';
+            currentPDFBase64 = null;
+            document.getElementById('grammar-input').value = 'S -> AA\nA -> aA\nA -> b';
+            document.getElementById('input-string').value = '';
+            document.getElementById('parsing-result-output').innerHTML = '';
+            document.getElementById('slr-status-output').innerHTML = '';
+            document.getElementById('conflicts-output').innerHTML = '';
+            showStep(1);
+            showNotification('Reset complete! Start with a fresh grammar.', 'info');
+        }
+
+        // Initialize with example grammar
+        window.onload = function () {
+            loadExample(1);
+        };
+    </script>
+</body>
+
+</html>
